@@ -1,0 +1,4 @@
+project_id = "invoiceflow"
+[functions.extract-invoice]
+verify_jwt = false
+# The function validates every bearer token with auth.getUser(), supporting modern signing keys.
