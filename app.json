@@ -1,0 +1,30 @@
+{
+  "expo": {
+    "name": "InvoiceFlow",
+    "slug": "invoiceflow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.coolrunnerplays.invoiceflow"
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {},
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-sharing",
+      "expo-secure-store",
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "Allow InvoiceFlow to scan your invoices."
+        }
+      ]
+    ],
+    "scheme": "invoiceflow"
+  }
+}

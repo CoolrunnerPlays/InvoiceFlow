@@ -1,0 +1,12 @@
+begin;
+insert into auth.users(id,email) values ('10000000-0000-4000-8000-000000000001','invoiceflow-test-a@example.invalid'),('10000000-0000-4000-8000-000000000002','invoiceflow-test-b@example.invalid');
+set local role authenticated;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000001","role":"authenticated"}',true);
+insert into public.invoices(id,owner_id,document) values('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','{"vendor":"Test","number":"1","company":"Test","date":"2026-10-18","currency":"CAD","subtotal":1,"tax":0,"total":1,"items":[{"description":"Test","quantity":1,"unitPrice":1,"amount":1}]}');
+do $$ begin if (select count(*) from public.invoices) <> 1 then raise exception 'Owner read failed'; end if; end $$;
+select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-000000000002","role":"authenticated"}',true);
+do $$ begin if (select count(*) from public.invoices) <> 0 then raise exception 'Cross-user isolation failed'; end if; end $$;
+reset role;
+do $$ begin if public.valid_invoice('{"vendor":null,"number":"1","company":"A","date":"2026-10-18","currency":"CAD","subtotal":1,"tax":0,"total":1,"items":[{"description":"a","quantity":1,"unitPrice":1,"amount":1}]}') then raise exception 'Null validation failed'; end if; end $$;
+rollback;
+select 'Owner read, cross-user isolation and null validation passed. Fixtures rolled back.' as result;
