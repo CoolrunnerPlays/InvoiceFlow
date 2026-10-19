@@ -1,8 +1,10 @@
+export type LineKind = "item" | "discount" | "return";
 export type LineItem = {
   description: string;
   quantity: number;
   unitPrice: number;
   amount: number;
+  kind?: LineKind;
 };
 export type Invoice = {
   id: string;
@@ -11,6 +13,7 @@ export type Invoice = {
   date: string;
   company: string;
   currency: string;
+  documentType?: "invoice" | "credit_note";
   subtotal: number;
   tax: number;
   total: number;
@@ -19,6 +22,10 @@ export type Invoice = {
   pagePaths?: string[];
   extractionWarnings?: string[];
   warningsReviewed?: boolean;
+  // Audit trail: every warning at save time, which ones the user acknowledged, and when.
+  reviewWarnings?: string[];
+  acknowledgedWarnings?: string[];
+  warningsReviewedAt?: string;
   status: "review" | "saved";
 };
 export const money = (amount: number, currency = "CAD") => {
@@ -34,10 +41,43 @@ export const money = (amount: number, currency = "CAD") => {
 };
 export const cents = (value: number) =>
   Math.round((value + Number.EPSILON) * 100);
+// Arithmetic mismatches are warnings, not errors: printed invoices can legitimately disagree.
+export function checkTotals(invoice: Invoice): string[] {
+  const m = (n: number) => money(n, invoice.currency);
+  const warnings: string[] = [];
+  invoice.items.forEach((i, n) => {
+    const expected = cents(i.quantity * i.unitPrice);
+    if (expected !== cents(i.amount))
+      warnings.push(
+        `Item ${n + 1}: ${i.quantity} × ${m(i.unitPrice)} = ${m(expected / 100)} but amount is ${m(i.amount)} (difference ${m((cents(i.amount) - expected) / 100)}).`,
+      );
+  });
+  const lines = invoice.items.reduce((sum, i) => sum + cents(i.amount), 0);
+  if (lines !== cents(invoice.subtotal))
+    warnings.push(
+      `Line items total ${m(lines / 100)} but subtotal is ${m(invoice.subtotal)} (difference ${m((cents(invoice.subtotal) - lines) / 100)}).`,
+    );
+  const sum = cents(invoice.subtotal) + cents(invoice.tax);
+  if (sum !== cents(invoice.total))
+    warnings.push(
+      `Subtotal plus tax is ${m(sum / 100)} but total is ${m(invoice.total)} (difference ${m((cents(invoice.total) - sum) / 100)}).`,
+    );
+  return warnings;
+}
+export const currentWarnings = (invoice: Invoice) => [
+  ...(invoice.extractionWarnings ?? []),
+  ...checkTotals(invoice),
+];
 export function validateInvoice(invoice: Invoice): string[] {
   const errors: string[] = [];
-  if (invoice.extractionWarnings?.length && !invoice.warningsReviewed)
-    errors.push("Review and acknowledge the extraction warnings.");
+  if (
+    currentWarnings(invoice).some(
+      (w) => !invoice.acknowledgedWarnings?.includes(w),
+    )
+  )
+    errors.push(
+      "Compare the review notes with the original and acknowledge them.",
+    );
   if (
     !invoice.vendor.trim() ||
     !invoice.number.trim() ||
@@ -59,23 +99,31 @@ export function validateInvoice(invoice: Invoice): string[] {
     invoice.total,
     ...invoice.items.flatMap((i) => [i.quantity, i.unitPrice, i.amount]),
   ];
-  if (amounts.some((n) => !Number.isFinite(n) || n < 0))
-    errors.push("Amounts must be valid, non-negative numbers.");
+  if (amounts.some((n) => !Number.isFinite(n)))
+    errors.push("Amounts must be valid numbers.");
   invoice.items.forEach((i, n) => {
-    if (!i.description.trim() || i.quantity <= 0)
-      errors.push(`Item ${n + 1} needs a description and positive quantity.`);
-    if (cents(i.quantity * i.unitPrice) !== cents(i.amount))
+    if (!i.description.trim())
+      errors.push(`Item ${n + 1} needs a description.`);
+    const kind = i.kind ?? "item";
+    if (kind === "item" && (i.quantity <= 0 || i.unitPrice < 0 || i.amount < 0))
       errors.push(
-        `Item ${n + 1}: quantity × unit price does not match amount.`,
+        `Item ${n + 1} has a negative or zero value but is marked as a regular item. Mark it as a discount or return, or fix the sign.`,
+      );
+    if (kind === "discount" && !(i.amount < 0))
+      errors.push(
+        `Item ${n + 1} is marked as a discount, so its amount must be negative.`,
+      );
+    if (kind === "return" && !(i.quantity < 0 && i.amount <= 0))
+      errors.push(
+        `Item ${n + 1} is marked as a return, so its quantity must be negative.`,
       );
   });
-  if (
-    invoice.items.reduce((sum, i) => sum + cents(i.amount), 0) !==
-    cents(invoice.subtotal)
-  )
-    errors.push("Line items do not match subtotal.");
-  if (cents(invoice.subtotal) + cents(invoice.tax) !== cents(invoice.total))
-    errors.push("Subtotal plus tax does not match total.");
+  if ((invoice.documentType ?? "invoice") === "invoice" && invoice.total < 0)
+    errors.push(
+      "The total is negative. Mark this document as a credit note, or fix the sign.",
+    );
+  if (invoice.documentType === "credit_note" && invoice.total > 0)
+    errors.push("A credit note's total must be zero or negative.");
   return errors;
 }
 export const sampleInvoices: Invoice[] = [

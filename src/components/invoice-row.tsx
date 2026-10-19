@@ -48,6 +48,13 @@ export function InvoiceRow({
         <Text style={{ color: colors.green, fontSize: 12, marginTop: 12 }}>
           {invoice.company} ·{" "}
           {invoice.status === "saved" ? "Saved" : "Needs review"}
+          {!!invoice.reviewWarnings?.length && (
+            <Text style={{ color: colors.danger }}>
+              {" "}
+              · ⚠ {invoice.reviewWarnings.length} review{" "}
+              {invoice.reviewWarnings.length === 1 ? "note" : "notes"}
+            </Text>
+          )}
         </Text>
       )}
     </Pressable>

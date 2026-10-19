@@ -1,12 +1,13 @@
 import { File } from "expo-file-system";
 import { randomUUID } from "expo-crypto";
 import { supabase } from "./supabase";
-import { Invoice, validateInvoice } from "./invoice";
+import { currentWarnings, Invoice, validateInvoice } from "./invoice";
 export async function listInvoices(): Promise<Invoice[]> {
   if (!supabase) throw new Error("Supabase is not configured.");
   const { data, error } = await supabase
     .from("invoices")
     .select("*")
+    .is("deleted_at", null)
     .order("created_at", { ascending: false });
   if (error) throw error;
   return Promise.all(
@@ -35,24 +36,37 @@ export async function saveInvoice(invoice: Invoice) {
     data: { user },
   } = await supabase.auth.getUser();
   if (!user) throw new Error("Sign in before saving.");
-  const { pages: _pages, pagePaths, ...document } = invoice;
-  const { error } = await supabase
-    .from("invoices")
-    .upsert(
-      {
-        id: invoice.id,
-        owner_id: user.id,
-        document,
-        page_paths: pagePaths ?? [],
-      },
-      { onConflict: "id" },
-    );
+  const { pages: _pages, pagePaths, ...rest } = invoice;
+  const reviewWarnings = currentWarnings(invoice);
+  const document = {
+    ...rest,
+    reviewWarnings,
+    warningsReviewed: reviewWarnings.length > 0 || undefined,
+  };
+  const { error } = await supabase.from("invoices").upsert(
+    {
+      id: invoice.id,
+      owner_id: user.id,
+      document,
+      page_paths: pagePaths ?? [],
+    },
+    { onConflict: "id" },
+  );
   if (error)
     throw new Error(
       error.code === "23505"
         ? "This vendor and invoice number already exist in your workspace."
         : error.message,
     );
+}
+// Soft delete: the row keeps its page paths until purge-pages erases the scans after 30 days.
+export async function deleteInvoice(id: string) {
+  if (!supabase) throw new Error("Supabase is not configured.");
+  const { error } = await supabase
+    .from("invoices")
+    .update({ deleted_at: new Date().toISOString() })
+    .eq("id", id);
+  if (error) throw error;
 }
 export async function extractPages(pages: string[]): Promise<Invoice> {
   if (!supabase) throw new Error("Supabase is not configured.");
@@ -97,6 +111,7 @@ export async function extractPages(pages: string[]): Promise<Invoice> {
       ...data.invoice,
       id,
       company: "",
+      acknowledgedWarnings: [],
       pages,
       pagePaths: paths,
       status: "review",

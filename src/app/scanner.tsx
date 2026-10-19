@@ -97,7 +97,7 @@ export default function Scanner() {
         <>
           <Notice text="Extract sends these pages to your private Supabase storage and Anthropic for invoice recognition." />
           <Button
-            title={`Extract ${pages.length} pages`}
+            title={`Extract ${pages.length} ${pages.length === 1 ? "page" : "pages"}`}
             onPress={extract}
             disabled={busy || demo || !session}
           />

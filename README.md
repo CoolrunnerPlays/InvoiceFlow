@@ -36,13 +36,19 @@ Claude remains **intentionally unconnected at the user's request**. Set `ANTHROP
 
 ## Data and security
 
-- `invoices`: owner UUID, validated JSONB invoice (all line items), private page paths, timestamp. Vendor/number unique per owner. Server checks quantities, line amounts, subtotal and tax/total arithmetic.
+- `invoices`: owner UUID, validated JSONB invoice (all line items), private page paths, timestamps and `deleted_at`. Vendor/number unique per owner among non-deleted invoices. The server checks shape and signs: each line is an `item`, `discount` (negative amount) or `return` (negative quantity), and a document is an `invoice` (total ≥ 0) or `credit_note` (total ≤ 0).
+- Arithmetic mismatches (qty × price, lines vs subtotal, subtotal + tax vs total) are **review notes**, not blockers. The user must acknowledge them before saving. They are stored permanently with the invoice (`reviewWarnings`, `acknowledgedWarnings`, `warningsReviewedAt`), flagged in history and exported in the workbook's "Review notes" column.
 - `invoice-pages`: private JPEG storage, maximum 5 MB/page. Signed previews expire after one hour; refresh history to renew.
-- `extraction_usage`: server-only quota accounting, 30 attempts/user/day. Maximum 10 pages and 20 MB combined per extraction.
+- `extraction_usage`: server-only quota accounting, 30 attempts/user/day. Quota is reserved only after the pages pass validation, and released when the provider rejects or never receives the request. A timeout keeps the reservation, because the provider may have processed it. Maximum 10 pages and 20 MB combined per extraction (about 27 MB base64, under the API's 32 MB request limit).
+- Scans are resized on the device to the 2576 px long edge Claude reads natively, at JPEG quality 0.9, so text stays legible without wasting upload size.
 - The Edge Function deliberately uses `verify_jwt = false` at the gateway because it validates the bearer token with `auth.getUser()` itself, including modern signing keys. Missing/invalid tokens are rejected before any provider request.
 - iPhone sessions use SecureStore; browser preview sessions use sessionStorage.
-- Failed extraction uploads are removed on a best-effort basis. Abandoned successful extraction drafts may leave private orphan images; lifecycle cleanup is still needed before production.
-- Credit notes, discounts, complex tax treatments and unusually long invoices require additional workflow support. This version blocks negative amounts and mismatched arithmetic rather than silently correcting them.
+- Deleting an invoice is a soft delete. The `purge-pages` Edge Function erases scans of invoices deleted more than 30 days ago, plus uploads older than 24 hours that no invoice references (abandoned reviews, failed saves). It removes files before rows, so failures retry safely. To enable it:
+  1. Set a random `PURGE_SECRET` in the Edge Function secrets.
+  2. Deploy the function (`supabase functions deploy purge-pages`).
+  3. Schedule it daily in **Dashboard → Integrations → Cron**: an HTTP request `POST https://<project>.supabase.co/functions/v1/purge-pages` with the header `x-purge-secret: <secret>`.
+- Until the 30-day purge runs, a deleted invoice can be restored by clearing its `deleted_at` in the database. There is no in-app restore yet.
+- Complex tax treatments and unusually long invoices still need human judgement. Negative values must be classified as a discount, return or credit note; otherwise they are rejected.
 - Production account recovery, account deletion, retention settings, paginated history and operational monitoring are future hardening work.
 
 ## Validation
@@ -61,7 +67,7 @@ Verified during implementation:
 - Unit tests cover valid invoices, invalid totals/fields and Excel round-trip preservation, including formula-like strings stored as text.
 - Web export and iOS Hermes bundle export pass.
 - Browser checks: total mismatch disables save; correcting it enables save; sample save returns to history; vendor search filters; company report filtering updates totals; export reports success.
-- `supabase/tests/rls.sql` ran against the development database: owner reads passed, cross-user reads were denied, null vendor data was rejected. All fixtures rolled back.
+- `supabase/tests/rls.sql` covers owner isolation, soft delete, private quota and purge functions, sign rules and the review audit trail. It runs in CI (the `database` job) against a local Supabase stack.
 - Expo Doctor: 18/20 checks passed on this host. The two Git-ignore checks could not verify ignored paths because the native `git` executable is missing. Both `.expo/` and `.env*.local` are explicitly ignored and excluded from publication. Git metadata was initialized with isomorphic-git; repository writes use the GitHub integration.
 - `npm audit fix` applied compatible fixes. 27 upstream advisories remain (18 high, 9 moderate), primarily Expo/Metro tooling plus ExcelJS's uuid dependency. The suggested forced fixes downgrade Expo/ExcelJS incompatibly, so they were not applied. Resolve/reassess before production release.
 

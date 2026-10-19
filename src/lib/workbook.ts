@@ -1,5 +1,5 @@
 import ExcelJS from "exceljs";
-import { Invoice } from "./invoice";
+import { currentWarnings, Invoice } from "./invoice";
 export async function buildWorkbook(invoices: Invoice[]) {
   const workbook = new ExcelJS.Workbook();
   workbook.creator = "InvoiceFlow";
@@ -9,10 +9,12 @@ export async function buildWorkbook(invoices: Invoice[]) {
     "Invoice number",
     "Date",
     "Company",
+    "Type",
     "Currency",
     "Subtotal",
     "Tax",
     "Total",
+    "Review notes",
   ]);
   const items = workbook.addWorksheet("Line items");
   items.addRow([
@@ -20,6 +22,7 @@ export async function buildWorkbook(invoices: Invoice[]) {
     "Vendor",
     "Company",
     "Currency",
+    "Kind",
     "Description",
     "Quantity",
     "Unit price",
@@ -31,10 +34,12 @@ export async function buildWorkbook(invoices: Invoice[]) {
       i.number,
       i.date,
       i.company,
+      i.documentType === "credit_note" ? "Credit note" : "Invoice",
       i.currency,
       i.subtotal,
       i.tax,
       i.total,
+      (i.reviewWarnings ?? currentWarnings(i)).join("\n"),
     ]);
     i.items.forEach((item) =>
       items.addRow([
@@ -42,6 +47,7 @@ export async function buildWorkbook(invoices: Invoice[]) {
         i.vendor,
         i.company,
         i.currency,
+        item.kind ?? "item",
         item.description,
         item.quantity,
         item.unitPrice,
@@ -60,9 +66,12 @@ export async function buildWorkbook(invoices: Invoice[]) {
     sheet.columns.forEach((c) => {
       c.width = 23;
     });
-    sheet.autoFilter = { from: "A1", to: "H1" };
+    sheet.autoFilter = {
+      from: { row: 1, column: 1 },
+      to: { row: 1, column: sheet.columnCount },
+    };
   });
-  [6, 7, 8].forEach((c) => (summary.getColumn(c).numFmt = "#,##0.00"));
-  [7, 8].forEach((c) => (items.getColumn(c).numFmt = "#,##0.00"));
+  [7, 8, 9].forEach((c) => (summary.getColumn(c).numFmt = "#,##0.00"));
+  [8, 9].forEach((c) => (items.getColumn(c).numFmt = "#,##0.00"));
   return new Uint8Array(await workbook.xlsx.writeBuffer());
 }

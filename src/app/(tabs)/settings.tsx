@@ -27,10 +27,11 @@ export default function Settings() {
         : await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
       setPassword("");
+      if (!signup) setDemo(false);
       setMessage(
         signup
           ? "Check your email to confirm your account, then sign in."
-          : "Signed in. Switch to your live workspace when ready.",
+          : "Signed in. Showing your live workspace.",
       );
     } catch (e) {
       setMessage(e instanceof Error ? e.message : "Authentication failed.");

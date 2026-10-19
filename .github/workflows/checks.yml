@@ -15,3 +15,12 @@ jobs:
       - run: npm test
       - run: npx expo export --platform web
       - run: npx expo export --platform ios --output-dir dist-ios
+  database:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: supabase/setup-cli@v1
+        with:
+          version: latest
+      - run: supabase start -x studio,imgproxy,inbucket,edge-runtime,logflare,vector,supavisor,realtime,postgres-meta
+      - run: psql postgresql://postgres:postgres@127.0.0.1:54322/postgres -v ON_ERROR_STOP=1 -f supabase/tests/rls.sql

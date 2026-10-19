@@ -9,14 +9,15 @@ import {
 } from "react";
 import { AppState } from "react-native";
 import { Session } from "@supabase/supabase-js";
-import { Invoice, sampleInvoices } from "./invoice";
+import { currentWarnings, Invoice, sampleInvoices } from "./invoice";
 import { supabase } from "./supabase";
-import { listInvoices, saveInvoice } from "./repository";
+import { deleteInvoice, listInvoices, saveInvoice } from "./repository";
 const Context = createContext<{
   invoices: Invoice[];
   draft: Invoice;
   setDraft: (i: Invoice) => void;
   save: (i: Invoice) => Promise<void>;
+  remove: (i: Invoice) => Promise<void>;
   demo: boolean;
   setDemo: (d: boolean) => void;
   session: Session | null;
@@ -65,9 +66,15 @@ export function InvoiceProvider({ children }: PropsWithChildren) {
   }, [refresh]);
   useEffect(() => {
     if (!supabase) return;
-    void supabase.auth
-      .getSession()
-      .then(({ data }) => setSession(data.session));
+    void supabase.auth.getSession().then(({ data }) => {
+      setSession(data.session);
+      // Signed-in users start in their live workspace.
+      if (data.session) {
+        ++generation.current;
+        setDemo(false);
+        setInvoices([]);
+      }
+    });
     const { data } = supabase.auth.onAuthStateChange((_event, s) =>
       setSession(s),
     );
@@ -94,9 +101,13 @@ export function InvoiceProvider({ children }: PropsWithChildren) {
       await saveInvoice(i);
     }
     setInvoices((prev) => [
-      { ...i, status: "saved" },
+      { ...i, status: "saved", reviewWarnings: currentWarnings(i) },
       ...prev.filter((x) => x.id !== i.id),
     ]);
+  }
+  async function remove(i: Invoice) {
+    if (!demo) await deleteInvoice(i.id);
+    setInvoices((prev) => prev.filter((x) => x.id !== i.id));
   }
   function changeMode(value: boolean) {
     ++generation.current;
@@ -111,6 +122,7 @@ export function InvoiceProvider({ children }: PropsWithChildren) {
         draft,
         setDraft,
         save,
+        remove,
         demo,
         setDemo: changeMode,
         session,

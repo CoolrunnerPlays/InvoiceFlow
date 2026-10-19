@@ -2,3 +2,6 @@ project_id = "invoiceflow"
 [functions.extract-invoice]
 verify_jwt = false
 # The function validates every bearer token with auth.getUser(), supporting modern signing keys.
+[functions.purge-pages]
+verify_jwt = false
+# Called by Supabase Cron; authorised by the PURGE_SECRET header instead of a user JWT.

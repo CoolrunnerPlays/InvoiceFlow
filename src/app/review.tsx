@@ -13,12 +13,40 @@ import {
   styles,
 } from "../components/ui";
 import { useInvoices } from "../lib/store";
-import { money, validateInvoice } from "../lib/invoice";
+import {
+  checkTotals,
+  currentWarnings,
+  LineKind,
+  money,
+  validateInvoice,
+} from "../lib/invoice";
+const kinds: LineKind[] = ["item", "discount", "return"];
+const kindLabel = { item: "Item", discount: "Discount", return: "Return" };
+// Accept "12,50" as well as "12.50"; empty stays NaN so validation flags it.
+const toNumber = (value: string) =>
+  value.trim() === "" ? NaN : Number(value.replace(",", "."));
 export default function Review() {
-  const { draft, setDraft, save } = useInvoices();
+  const { draft, setDraft, save, remove } = useInvoices();
   const [message, setMessage] = useState("");
   const [busy, setBusy] = useState(false);
+  const [confirmDelete, setConfirmDelete] = useState(false);
   const errors = validateInvoice(draft);
+  const totalsOk = !checkTotals(draft).length;
+  const warnings = currentWarnings(draft);
+  const acknowledged = warnings.every((w) =>
+    draft.acknowledgedWarnings?.includes(w),
+  );
+  async function deleteDraft() {
+    if (!confirmDelete) return setConfirmDelete(true);
+    setBusy(true);
+    try {
+      await remove(draft);
+      router.replace("/invoices");
+    } catch (e) {
+      setMessage(e instanceof Error ? e.message : "Unable to delete invoice.");
+      setBusy(false);
+    }
+  }
   async function confirm() {
     setBusy(true);
     try {
@@ -88,14 +116,15 @@ export default function Review() {
           </View>
         </View>
       )}
-      {!errors.length ? (
+      {totalsOk && (
         <View style={{ ...styles.row, justifyContent: "flex-start" }}>
           <CircleCheck size={18} color={colors.green} />
           <Text style={{ color: colors.green }}>Totals verified</Text>
         </View>
-      ) : (
-        errors.map((error, n) => <Notice key={n} text={error} error />)
       )}
+      {errors.map((error, n) => (
+        <Notice key={n} text={error} error />
+      ))}
       <Field
         label="Company"
         value={draft.company}
@@ -106,20 +135,43 @@ export default function Review() {
         <Text style={styles.text}>{draft.items.length} line items</Text>
       </Card>
       <Text style={styles.section}>Invoice details</Text>
-      {draft.extractionWarnings?.map((warning, n) => (
-        <Notice key={n} text={warning} error />
+      {!!warnings.length && <Text style={styles.section}>Review notes</Text>}
+      {warnings.map((warning, n) => (
+        <Notice
+          key={n}
+          text={warning}
+          error={!draft.acknowledgedWarnings?.includes(warning)}
+        />
       ))}
-      {!!draft.extractionWarnings?.length && (
+      {!!warnings.length && (
         <Button
           title={
-            draft.warningsReviewed
-              ? "Warnings acknowledged"
-              : "I reviewed all extraction warnings"
+            acknowledged
+              ? `Acknowledged ${draft.warningsReviewedAt?.slice(0, 10) ?? ""}`
+              : "I compared these notes with the original"
           }
           secondary
-          onPress={() => setDraft({ ...draft, warningsReviewed: true })}
+          disabled={acknowledged}
+          onPress={() =>
+            setDraft({
+              ...draft,
+              acknowledgedWarnings: warnings,
+              warningsReviewedAt: new Date().toISOString(),
+            })
+          }
         />
       )}
+      <Button
+        title={`Document: ${draft.documentType === "credit_note" ? "Credit note" : "Invoice"}`}
+        secondary
+        onPress={() =>
+          setDraft({
+            ...draft,
+            documentType:
+              draft.documentType === "credit_note" ? "invoice" : "credit_note",
+          })
+        }
+      />
       {(["vendor", "number", "date", "currency"] as const).map((key) => (
         <Field
           key={key}
@@ -132,6 +184,25 @@ export default function Review() {
       {draft.items.map((item, n) => (
         <Card key={n}>
           <Text style={styles.muted}>Item {n + 1}</Text>
+          <Button
+            title={`Type: ${kindLabel[item.kind ?? "item"]}`}
+            secondary
+            onPress={() =>
+              setDraft({
+                ...draft,
+                items: draft.items.map((x, index) =>
+                  index === n
+                    ? {
+                        ...x,
+                        kind: kinds[
+                          (kinds.indexOf(x.kind ?? "item") + 1) % kinds.length
+                        ],
+                      }
+                    : x,
+                ),
+              })
+            }
+          />
           {(["description", "quantity", "unitPrice", "amount"] as const).map(
             (key) => (
               <Field
@@ -155,11 +226,7 @@ export default function Review() {
                         ? {
                             ...x,
                             [key]:
-                              key === "description"
-                                ? value
-                                : value.trim() === ""
-                                  ? NaN
-                                  : Number(value),
+                              key === "description" ? value : toNumber(value),
                           }
                         : x,
                     ),
@@ -202,7 +269,7 @@ export default function Review() {
           onChangeText={(value) =>
             setDraft({
               ...draft,
-              [key]: value.trim() === "" ? NaN : Number(value),
+              [key]: toNumber(value),
             })
           }
         />
@@ -214,6 +281,19 @@ export default function Review() {
         disabled={busy || errors.length > 0}
         onPress={confirm}
       />
+      {draft.status === "saved" && (
+        <>
+          <Button
+            title={confirmDelete ? "Tap again to delete" : "Delete invoice"}
+            secondary
+            disabled={busy}
+            onPress={deleteDraft}
+          />
+          {confirmDelete && (
+            <Notice text="The invoice is removed now; its scans are erased after 30 days." />
+          )}
+        </>
+      )}
     </Screen>
   );
 }
