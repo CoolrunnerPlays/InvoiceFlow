@@ -44,6 +44,9 @@ const schema = z.object({
   extractionWarnings: z.array(field).max(100),
 });
 const { $schema: _, ...inputSchema } = z.toJSONSchema(schema);
+// Optional override for a proxy, or a local mock in tests.
+const anthropicUrl =
+  Deno.env.get("ANTHROPIC_BASE_URL") ?? "https://api.anthropic.com";
 Deno.serve(async (req) => {
   if (req.method === "OPTIONS") return new Response("ok", { headers });
   if (req.method !== "POST") return reply({ error: "Method not allowed" }, 405);
@@ -126,7 +129,7 @@ Deno.serve(async (req) => {
     };
     let response: Response;
     try {
-      response = await fetch("https://api.anthropic.com/v1/messages", {
+      response = await fetch(`${anthropicUrl}/v1/messages`, {
         method: "POST",
         signal: AbortSignal.timeout(90000),
         headers: {
