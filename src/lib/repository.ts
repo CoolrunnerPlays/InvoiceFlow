@@ -81,15 +81,19 @@ export async function extractPages(pages: string[]): Promise<Invoice> {
   const paths: string[] = [];
   try {
     for (let n = 0; n < pages.length; n++) {
-      const file = new File(pages[n]);
-      if (file.size > 5 * 1024 * 1024)
+      // Web pages are in-browser blob URLs; native pages are files on disk.
+      const bytes =
+        process.env.EXPO_OS === "web"
+          ? await (await fetch(pages[n])).arrayBuffer()
+          : await new File(pages[n]).arrayBuffer();
+      if (bytes.byteLength > 5 * 1024 * 1024)
         throw new Error(
           `Page ${n + 1} exceeds 5 MB. Retake it at a lower resolution.`,
         );
       const path = `${user.id}/${id}/${n}.jpg`;
       const { error } = await supabase.storage
         .from("invoice-pages")
-        .upload(path, await file.arrayBuffer(), {
+        .upload(path, bytes, {
           contentType: "image/jpeg",
           upsert: false,
         });

@@ -9,6 +9,19 @@ export async function exportInvoices(invoices: Invoice[]) {
     const blob = new Blob([bytes as BlobPart], {
       type: "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
     });
+    // Phones (including the home-screen app) get the share sheet: Save to Files, Mail, Excel.
+    const file = new globalThis.File([blob], name, { type: blob.type });
+    if (
+      matchMedia("(pointer: coarse)").matches &&
+      navigator.canShare?.({ files: [file] })
+    ) {
+      try {
+        return await navigator.share({ files: [file] });
+      } catch (e) {
+        if (e instanceof DOMException && e.name === "AbortError") return;
+        // Otherwise (e.g. sharing not allowed here) fall back to a download.
+      }
+    }
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url;

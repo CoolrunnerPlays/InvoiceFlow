@@ -12,7 +12,12 @@
     "android": {
       "predictiveBackGestureEnabled": false
     },
-    "web": {},
+    "web": {
+      "output": "single",
+      "name": "InvoiceFlow",
+      "themeColor": "#111827",
+      "backgroundColor": "#111827"
+    },
     "plugins": [
       "expo-router",
       "expo-image",
@@ -23,7 +28,8 @@
         {
           "cameraPermission": "Allow InvoiceFlow to scan your invoices."
         }
-      ]
+      ],
+      "expo-status-bar"
     ],
     "scheme": "invoiceflow"
   }

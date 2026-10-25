@@ -26,6 +26,23 @@ npx eas-cli@latest build --platform ios --profile development
 
 **No real iPhone testing has been performed.** An exported iOS JavaScript bundle is not a signed app or a device test.
 
+## Use it on your phone (website)
+
+The app also runs as a website that you can add to the iPhone home screen. You don't need an Apple Developer account or app builds.
+
+1. Copy `.env.example` to `.env.local` and set your Supabase URL and publishable key. They are built into the site, so set them before exporting.
+2. Build the site with `npx expo export --platform web`. Re-run this before every deploy.
+3. Deploy it to free EAS Hosting:
+   - Run `npx eas-cli@latest deploy`. The first time, it asks you to sign in to Expo and choose a subdomain, and it prints a preview URL.
+   - Run `npx eas-cli@latest deploy --prod` to publish to the main `https://<name>.expo.app` address.
+4. In Supabase → **Authentication → URL Configuration**, set **Site URL** to that address. Otherwise the confirmation emails link to `localhost`.
+5. On the iPhone, open the address in **Safari**, tap **Share → Add to Home Screen**, then open InvoiceFlow from its icon.
+
+Differences from the native app:
+- **Scanning:** "Take or choose photos" uses the camera or photo library, with no automatic edge cropping. Lay the invoice flat and fill the photo with the page. Every photo is converted to JPEG (including iPhone HEIC photos) and resized to a 2576 px long edge before upload.
+- **Sign-in:** the website stays signed in through the browser's local storage. The native app uses the iPhone's secure storage.
+- **Excel export:** on a phone it opens the share sheet (Save to Files, Mail, Excel); on a computer it downloads the file.
+
 ## Implemented phases
 
 1. **Frontend:** Dashboard, multipage scanner flow, review with all editable line items, searchable invoice history, company-filtered reports, and settings. Safe-area support and native stack navigation. Sample data is marked and isolated from live storage. Sample edits last for the session.
@@ -42,7 +59,7 @@ Claude remains **intentionally unconnected at the user's request**. Set `ANTHROP
 - `extraction_usage`: server-only quota accounting, 30 attempts/user/day. Quota is reserved only after the pages pass validation, and released when the provider rejects or never receives the request. A timeout keeps the reservation, because the provider may have processed it. Maximum 10 pages and 20 MB combined per extraction (about 27 MB base64, under the API's 32 MB request limit).
 - Scans are resized on the device to the 2576 px long edge Claude reads natively, at JPEG quality 0.9, so text stays legible without wasting upload size.
 - The Edge Function deliberately uses `verify_jwt = false` at the gateway because it validates the bearer token with `auth.getUser()` itself, including modern signing keys. Missing/invalid tokens are rejected before any provider request.
-- iPhone sessions use SecureStore; browser preview sessions use sessionStorage.
+- iPhone app sessions use SecureStore; website sessions use localStorage so the home-screen app stays signed in.
 - Deleting an invoice is a soft delete. The `purge-pages` Edge Function erases scans of invoices deleted more than 30 days ago, plus uploads older than 24 hours that no invoice references (abandoned reviews, failed saves). It removes files before rows, so failures retry safely. To enable it:
   1. Set a random `PURGE_SECRET` in the Edge Function secrets.
   2. Deploy the function (`supabase functions deploy purge-pages`).

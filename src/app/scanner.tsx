@@ -8,6 +8,7 @@ import { useInvoices } from "../lib/store";
 import { sampleInvoices } from "../lib/invoice";
 import { scanDocuments } from "../lib/scan";
 import { extractPages } from "../lib/repository";
+const web = process.env.EXPO_OS === "web";
 export default function Scanner() {
   const { setDraft, demo, session } = useInvoices();
   const [pages, setPages] = useState<string[]>([]);
@@ -48,7 +49,13 @@ export default function Scanner() {
   return (
     <Screen>
       <Text style={styles.title}>A clear scan. Every detail.</Text>
-      <Notice text="Place your invoice on a flat surface with good lighting. Add all pages before reviewing." />
+      <Notice
+        text={
+          web
+            ? "Lay the invoice flat in good light and fill the photo with the page, one photo per page. Add all pages before extracting."
+            : "Place your invoice on a flat surface with good lighting. Add all pages before reviewing."
+        }
+      />
       {!pages.length && (
         <View
           style={{
@@ -64,7 +71,10 @@ export default function Scanner() {
         >
           <ScanLine size={72} color={colors.blue} />
           <Text style={styles.section}>Ready to scan</Text>
-          <Text style={styles.muted}>Automatic edges · Multiple pages</Text>
+          <Text style={styles.muted}>
+            {web ? "Camera or photo library" : "Automatic edges"} · Multiple
+            pages
+          </Text>
         </View>
       )}
       {pages.map((uri, n) => (
@@ -87,8 +97,12 @@ export default function Scanner() {
           busy
             ? "Working…"
             : pages.length
-              ? "Scan more pages"
-              : "Open document camera"
+              ? web
+                ? "Add more photos"
+                : "Scan more pages"
+              : web
+                ? "Take or choose photos"
+                : "Open document camera"
         }
         disabled={busy}
         onPress={scan}
