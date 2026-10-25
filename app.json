@@ -1,0 +1,42 @@
+{
+  "expo": {
+    "name": "InvoiceFlow",
+    "slug": "invoiceflow",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "userInterfaceStyle": "dark",
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.coolrunnerplays.invoiceflow"
+    },
+    "android": {
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "output": "single",
+      "name": "InvoiceFlow",
+      "themeColor": "#111827",
+      "backgroundColor": "#111827"
+    },
+    "plugins": [
+      "expo-router",
+      "expo-image",
+      "expo-sharing",
+      "expo-secure-store",
+      [
+        "react-native-document-scanner-plugin",
+        {
+          "cameraPermission": "Allow InvoiceFlow to scan your invoices."
+        }
+      ],
+      "expo-status-bar"
+    ],
+    "scheme": "invoiceflow",
+    "extra": {
+      "eas": {
+        "projectId": "1d5e6e88-e923-4502-ab6c-85e7006133cb"
+      }
+    },
+    "owner": "coolrunnerplayss-team"
+  }
+}
