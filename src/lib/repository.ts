@@ -56,7 +56,9 @@ export async function saveInvoice(invoice: Invoice) {
     throw new Error(
       error.code === "23505"
         ? "This vendor and invoice number already exist in your workspace."
-        : error.message,
+        : error.code === "42501"
+          ? "This invoice was deleted, possibly on another device."
+          : error.message,
     );
 }
 // Soft delete: the row keeps its page paths until purge-pages erases the scans after 30 days.

@@ -24,7 +24,8 @@ const schema = z.object({
   vendor: field,
   number: field,
   date: field,
-  currency: z.string().regex(/^[A-Z]{3}$/),
+  // Empty when the page shows no currency; the review screen asks for it before saving.
+  currency: z.union([z.string().regex(/^[A-Z]{3}$/), z.literal("")]),
   documentType: z.enum(["invoice", "credit_note"]),
   subtotal: amount,
   tax: amount,
@@ -70,7 +71,7 @@ Deno.serve(async (req) => {
     return reply(
       {
         error:
-          "Extraction is not configured yet. Set ANTHROPIC_API_KEY and CLAUDE_MODEL in Supabase function secrets.",
+          "Invoice reading isn't available yet. Try again later.",
       },
       503,
     );

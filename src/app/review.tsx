@@ -18,13 +18,11 @@ import {
   currentWarnings,
   LineKind,
   money,
+  parseAmount,
   validateInvoice,
 } from "../lib/invoice";
 const kinds: LineKind[] = ["item", "discount", "return"];
 const kindLabel = { item: "Item", discount: "Discount", return: "Return" };
-// Accept "12,50" as well as "12.50"; empty stays NaN so validation flags it.
-const toNumber = (value: string) =>
-  value.trim() === "" ? NaN : Number(value.replace(",", "."));
 export default function Review() {
   const { draft, setDraft, save, remove } = useInvoices();
   const [message, setMessage] = useState("");
@@ -226,7 +224,9 @@ export default function Review() {
                         ? {
                             ...x,
                             [key]:
-                              key === "description" ? value : toNumber(value),
+                              key === "description"
+                                ? value
+                                : parseAmount(value),
                           }
                         : x,
                     ),
@@ -269,7 +269,7 @@ export default function Review() {
           onChangeText={(value) =>
             setDraft({
               ...draft,
-              [key]: toNumber(value),
+              [key]: parseAmount(value),
             })
           }
         />
