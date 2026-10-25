@@ -31,6 +31,12 @@
       ],
       "expo-status-bar"
     ],
-    "scheme": "invoiceflow"
+    "scheme": "invoiceflow",
+    "extra": {
+      "eas": {
+        "projectId": "1d5e6e88-e923-4502-ab6c-85e7006133cb"
+      }
+    },
+    "owner": "coolrunnerplayss-team"
   }
 }
