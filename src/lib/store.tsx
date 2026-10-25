@@ -35,6 +35,8 @@ export function InvoiceProvider({ children }: PropsWithChildren) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const generation = useRef(0);
+  // Token refreshes replace the session object; only a different user should reload the list.
+  const userId = session?.user.id;
   const refresh = useCallback(async () => {
     const request = ++generation.current;
     setError("");
@@ -44,7 +46,7 @@ export function InvoiceProvider({ children }: PropsWithChildren) {
       return;
     }
     setInvoices([]);
-    if (!session) {
+    if (!userId) {
       setLoading(false);
       return;
     }
@@ -58,7 +60,7 @@ export function InvoiceProvider({ children }: PropsWithChildren) {
     } finally {
       if (request === generation.current) setLoading(false);
     }
-  }, [demo, session]);
+  }, [demo, userId]);
   // Fetching external data needs loading/error state around the request.
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect

@@ -151,7 +151,8 @@ export function Field({
           setBuffer(text);
           onChangeText(text);
         }}
-        keyboardType={numeric ? "decimal-pad" : "default"}
+        // decimal-pad has no minus key; discounts, returns and credit notes need one.
+        keyboardType={numeric ? "numbers-and-punctuation" : "default"}
         autoCapitalize="none"
         secureTextEntry={secure}
         style={styles.input}

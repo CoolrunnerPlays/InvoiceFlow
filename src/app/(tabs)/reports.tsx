@@ -76,7 +76,7 @@ export default function Reports() {
           </Text>
         ))}
         <Text style={styles.muted}>
-          {filtered.length} invoices ·{" "}
+          {filtered.length} invoice{filtered.length === 1 ? "" : "s"} ·{" "}
           {filtered.reduce((s, i) => s + i.items.length, 0)} line items
         </Text>
       </Card>

@@ -19,6 +19,12 @@ select set_config('request.jwt.claims','{"sub":"10000000-0000-4000-8000-00000000
 do $$ begin if (select count(*) from public.invoices where deleted_at is not null) <> 0 then raise exception 'Cross-user soft delete succeeded'; end if; end $$;
 update public.invoices set deleted_at = now() where id = '20000000-0000-4000-8000-000000000001';
 do $$ begin if (select count(*) from public.invoices where deleted_at is not null) <> 1 then raise exception 'Owner soft delete failed'; end if; end $$;
+update public.invoices set page_paths = '{10000000-0000-4000-8000-000000000001/a/0.jpg}' where id = '20000000-0000-4000-8000-000000000001';
+do $$ begin if exists (select 1 from public.invoices where id = '20000000-0000-4000-8000-000000000001' and cardinality(page_paths) > 0) then raise exception 'Deleted invoice was updated'; end if; end $$;
+do $$ begin
+  insert into public.invoices(id,owner_id,document,page_paths) values('20000000-0000-4000-8000-000000000003','10000000-0000-4000-8000-000000000001','{"vendor":"X","number":"9","company":"Test","date":"2026-10-18","currency":"CAD","subtotal":1,"tax":0,"total":1,"items":[{"description":"Test","quantity":1,"unitPrice":1,"amount":1}]}','{10000000-0000-4000-8000-000000000002/a/0.jpg}');
+  raise exception 'Foreign page path accepted';
+exception when check_violation then null; end $$;
 insert into public.invoices(id,owner_id,document) values('20000000-0000-4000-8000-000000000002','10000000-0000-4000-8000-000000000001','{"vendor":"Test","number":"1","company":"Test","date":"2026-10-18","currency":"CAD","subtotal":1,"tax":0,"total":1,"items":[{"description":"Test","quantity":1,"unitPrice":1,"amount":1}]}');
 reset role;
 do $$ begin if public.valid_invoice('{"vendor":null,"number":"1","company":"A","date":"2026-10-18","currency":"CAD","subtotal":1,"tax":0,"total":1,"items":[{"description":"a","quantity":1,"unitPrice":1,"amount":1}]}') then raise exception 'Null validation failed'; end if; end $$;
@@ -29,4 +35,4 @@ do $$ begin if public.valid_invoice('{"vendor":"V","number":"1","company":"A","d
 do $$ begin if public.valid_invoice('{"vendor":"V","number":"1","company":"A","date":"2026-10-18","currency":"CAD","subtotal":1,"tax":0,"total":2,"reviewWarnings":["Mismatch"],"items":[{"description":"a","quantity":1,"unitPrice":1,"amount":1}]}') then raise exception 'Unacknowledged review notes accepted'; end if; end $$;
 do $$ begin if not public.valid_invoice('{"vendor":"V","number":"1","company":"A","date":"2026-10-18","currency":"CAD","subtotal":1,"tax":0,"total":2,"reviewWarnings":["Mismatch"],"acknowledgedWarnings":["Mismatch"],"warningsReviewedAt":"2026-10-19T12:00:00Z","items":[{"description":"a","quantity":1,"unitPrice":1,"amount":1}]}') then raise exception 'Acknowledged review notes rejected'; end if; end $$;
 rollback;
-select 'Isolation, soft delete, private quota/purge functions, sign rules and review audit checks passed. Fixtures rolled back.' as result;
+select 'Isolation, soft delete, owner-only page paths, private quota/purge functions, sign rules and review audit checks passed. Fixtures rolled back.' as result;

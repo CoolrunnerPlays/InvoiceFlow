@@ -39,8 +39,18 @@ export const money = (amount: number, currency = "CAD") => {
     return amount.toFixed(2);
   }
 };
+// toPrecision drops float noise (10.005 * 100 = 1000.4999…); rounds halves away from zero.
 export const cents = (value: number) =>
-  Math.round((value + Number.EPSILON) * 100);
+  Math.sign(value) *
+  Math.round(Number((Math.abs(value) * 100).toPrecision(12)));
+// Accepts "1,234.50", "1,234" (thousands) and "12,50" (decimal comma); empty stays NaN.
+export function parseAmount(value: string) {
+  const v = value.trim().replace(/\s/g, "");
+  if (v === "") return NaN;
+  if (/^[-+]?\d{1,3}(,\d{3})+(\.\d+)?$/.test(v))
+    return Number(v.replace(/,/g, ""));
+  return Number(v.includes(".") ? v : v.replace(",", "."));
+}
 // Arithmetic mismatches are warnings, not errors: printed invoices can legitimately disagree.
 export function checkTotals(invoice: Invoice): string[] {
   const m = (n: number) => money(n, invoice.currency);
@@ -101,6 +111,8 @@ export function validateInvoice(invoice: Invoice): string[] {
   ];
   if (amounts.some((n) => !Number.isFinite(n)))
     errors.push("Amounts must be valid numbers.");
+  else if (amounts.some((n) => Math.abs(n) > 1e12))
+    errors.push("Amounts must be under 1,000,000,000,000.");
   invoice.items.forEach((i, n) => {
     if (!i.description.trim())
       errors.push(`Item ${n + 1} needs a description.`);

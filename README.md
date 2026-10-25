@@ -60,7 +60,7 @@ Claude remains **intentionally unconnected at the user's request**. Set `ANTHROP
 - Scans are resized on the device to the 2576 px long edge Claude reads natively, at JPEG quality 0.9, so text stays legible without wasting upload size.
 - The Edge Function deliberately uses `verify_jwt = false` at the gateway because it validates the bearer token with `auth.getUser()` itself, including modern signing keys. Missing/invalid tokens are rejected before any provider request.
 - iPhone app sessions use SecureStore; website sessions use localStorage so the home-screen app stays signed in.
-- Deleting an invoice is a soft delete. The `purge-pages` Edge Function erases scans of invoices deleted more than 30 days ago, plus uploads older than 24 hours that no invoice references (abandoned reviews, failed saves). It removes files before rows, so failures retry safely. To enable it:
+- Deleting an invoice is a soft delete. The `purge-pages` Edge Function erases scans of invoices deleted more than 30 days ago, plus uploads older than 7 days that no invoice references (abandoned reviews, failed saves). It removes files before rows, so failures retry safely. To enable it:
   1. Set a random `PURGE_SECRET` in the Edge Function secrets.
   2. Deploy the function (`supabase functions deploy purge-pages`).
   3. Schedule it daily in **Dashboard → Integrations → Cron**: an HTTP request `POST https://<project>.supabase.co/functions/v1/purge-pages` with the header `x-purge-secret: <secret>`.

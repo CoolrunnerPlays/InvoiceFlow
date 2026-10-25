@@ -34,7 +34,11 @@ export default function Invoices() {
         />
       </View>
       <Notice
-        text={loading ? "Loading invoices…" : `${filtered.length} invoices`}
+        text={
+          loading
+            ? "Loading invoices…"
+            : `${filtered.length} invoice${filtered.length === 1 ? "" : "s"}`
+        }
       />
       {!!error && <Notice text={error} error />}
       <Button

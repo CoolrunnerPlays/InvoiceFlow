@@ -2,9 +2,11 @@ import { test } from "node:test";
 import assert from "node:assert/strict";
 import ExcelJS from "exceljs";
 import {
+  cents,
   checkTotals,
   currentWarnings,
   Invoice,
+  parseAmount,
   sampleInvoices,
   validateInvoice,
 } from "../src/lib/invoice";
@@ -100,4 +102,15 @@ test("Excel round-trip preserves items, types, review notes and literal formula-
   assert.equal(summary.getCell("A2").value, i.vendor);
   assert.equal(items.getCell("E2").value, "discount");
   assert.equal(items.getCell("G2").value, 3);
+});
+test("amounts parse thousands and decimal commas, and round to the cent", () => {
+  assert.equal(parseAmount("1,234"), 1234);
+  assert.equal(parseAmount("1,234.50"), 1234.5);
+  assert.equal(parseAmount("12,50"), 12.5);
+  assert.equal(parseAmount("-5"), -5);
+  assert.ok(Number.isNaN(parseAmount(" ")));
+  assert.equal(cents(10.005), 1001);
+  assert.equal(cents(3 * 3.335), 1001);
+  assert.equal(cents(-2.5), -250);
+  assert.equal(cents(-0.125), -13);
 });
